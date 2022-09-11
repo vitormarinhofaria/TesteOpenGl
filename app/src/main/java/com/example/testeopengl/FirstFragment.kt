@@ -15,6 +15,8 @@ import android.view.View
 import android.view.ViewGroup
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.RequiresApi
+import com.arthenica.ffmpegkit.FFmpegKit
+import com.arthenica.ffmpegkit.ReturnCode
 import com.example.testeopengl.databinding.FragmentFirstBinding
 import java.io.FileDescriptor
 import java.lang.annotation.Native
@@ -58,7 +60,7 @@ class FirstFragment : Fragment() {
 
         binding.buttonFirst.setOnClickListener {
             getPreviewImage.launch(arrayOf("image/*"))
-            //findNavController().navigate(R.id.action_FirstFragment_to_SecondFragment)
+            //findNavController().navigate(R.Id.action_FirstFragment_to_SecondFragment)
         }
 
         binding.btnSave.setOnClickListener { NativeRenderer.takePrint() }
@@ -106,5 +108,12 @@ class FirstFragment : Fragment() {
     override fun onDestroyView() {
         super.onDestroyView()
         _binding = null
+    }
+
+    fun saveMp4(){
+        val session = FFmpegKit.execute("-framerate 60 -i 'img_%d.png' -c:v libx264 -pix_fmt yuv420p out.mp4")
+        if(ReturnCode.isSuccess(session.returnCode)){
+           Log.i("OPENGLTESTE", "Success saving video")
+        }
     }
 }

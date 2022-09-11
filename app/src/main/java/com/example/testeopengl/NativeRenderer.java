@@ -10,6 +10,11 @@ import android.opengl.GLES30;
 import android.opengl.GLES32;
 import android.opengl.GLSurfaceView;
 import android.opengl.GLUtils;
+import android.util.Log;
+
+import com.arthenica.ffmpegkit.FFmpegKit;
+import com.arthenica.ffmpegkit.FFmpegSession;
+import com.arthenica.ffmpegkit.ReturnCode;
 
 import javax.microedition.khronos.egl.EGL10;
 import javax.microedition.khronos.egl.EGLConfig;
@@ -51,5 +56,14 @@ public class NativeRenderer implements GLSurfaceView.Renderer {
     public void onDrawFrame(GL10 gl) {
         GLES32 gl11 = gl instanceof GLES32 ? ((GLES32) gl) : null;
         onDrawFrameNative(gl11);
+    }
+
+    static void saveMp4(){
+        FFmpegSession session = FFmpegKit.execute("-framerate 24 -i Frames/img%d.png -i gen.wav -c:v mpeg4 -pix_fmt yuv420p out.mp4");
+        if(ReturnCode.isSuccess(session.getReturnCode())){
+            Log.i("OPENGLTESTE", "Success saving video");
+        }else{
+            Log.d("OPENGLTESTE", String.format("Failed State is >: %s", session.getState()));
+        }
     }
 }

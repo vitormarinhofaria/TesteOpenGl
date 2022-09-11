@@ -17,15 +17,22 @@ set(CMAKE_C_STANDARD 17)
 # Gradle automatically packages shared libraries with your APK.
 
 add_subdirectory(glm)
+add_library(# Sets the name of the library.
+            testeopengl
 
-add_library( # Sets the name of the library.
-             testeopengl
+            # Sets the library as a shared library.
+            SHARED
 
-             # Sets the library as a shared library.
-             SHARED
-
-             # Provides a relative path to your source file(s).
-             testeopengl.cpp tinywav/tinywav.c tinywav/tinywav.h stbi_image_write.h)
+            # Provides a relative path to your source file(s).
+            testeopengl.cpp testeopengl.h
+            tinywav/tinywav.c tinywav/tinywav.h
+            stbi_image_write.h stb_impl.cpp
+            Framebuffer.cpp Framebuffer.h
+            LogUtils.h
+            Types.h Types.cpp
+            Shader.cpp Shader.h
+            TexturedQuad2D.cpp TexturedQuad2D.h
+            Texture2D.h Texture2D.cpp)
 
 # Searches for a specified prebuilt library and stores the path as a
 # variable. Because CMake includes system libraries in the search path by

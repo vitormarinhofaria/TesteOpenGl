@@ -12,6 +12,8 @@ import android.opengl.GLSurfaceView;
 import android.opengl.GLUtils;
 import android.util.Log;
 
+import androidx.fragment.app.Fragment;
+
 import com.arthenica.ffmpegkit.FFmpegKit;
 import com.arthenica.ffmpegkit.FFmpegSession;
 import com.arthenica.ffmpegkit.ReturnCode;
@@ -32,6 +34,8 @@ public class NativeRenderer implements GLSurfaceView.Renderer {
     public static native void setRawTexture(int w, int h, byte[] bytes);
     public static native void takePrint();
     public static native void SetScreenResolution(int width, int height);
+
+    public static native void SetFragment(FirstFragment frag);
 
     public static void TakePrint(){
         Bitmap.createBitmap(350, 240, Bitmap.Config.RGB_565);

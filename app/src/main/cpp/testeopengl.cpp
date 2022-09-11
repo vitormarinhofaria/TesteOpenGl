@@ -60,6 +60,10 @@ float ratio = 1920.0f / 1080.0f;
 glm::mat4 proj = glm::ortho(0.0f, 1920.0f, 1080.0f, 0.0f, -1000.0f, 1000.0f);;
 glm::mat4 model;
 
+jobject Fragment;
+jclass FragmentClass;
+jmethodID Fragment_setFrameState;
+
 extern "C"
 JNIEXPORT void JNICALL
 Java_com_example_testeopengl_NativeRenderer_onSurfaceChangedNative(JNIEnv *env, jclass clazz,
@@ -109,7 +113,7 @@ Java_com_example_testeopengl_NativeRenderer_onSurfaceCreatedNative(JNIEnv *env, 
     lastTime = getNow();
 }
 
-void saveFrame(int frameNum) {
+void saveFrame(int frameNum, JNIEnv* env) {
     auto bufferSize = G_State->framebuffer.GetPixelsBufferSize();
     auto *buffer = (unsigned char *) malloc(bufferSize);
     G_State->framebuffer.GetPixels(buffer);
@@ -124,6 +128,7 @@ void saveFrame(int frameNum) {
                    G_State->framebuffer.ScreenSize.y, 3,
                    buffer, G_State->framebuffer.ScreenSize.x * 3);
     free(buffer);
+    env->CallVoidMethod(Fragment, Fragment_setFrameState, (jint)frameNum);
     LOG("Frame %d sr is %d %s", frameNum, sr, fileName.c_str());
 }
 
@@ -207,7 +212,7 @@ Java_com_example_testeopengl_NativeRenderer_onDrawFrameNative(JNIEnv *env, jclas
     static uint64_t frameCount = 0;
     static bool taken = false;
     if (frameCount < 1104) {
-        saveFrame(frameCount);
+        saveFrame(frameCount, env);
     }
     if (frameCount == 1105 || frameCount == 1) {
         auto saveMp4_Id = env->GetStaticMethodID(clazz, "saveMp4", "()V");
@@ -297,4 +302,12 @@ int State::newEntity() {
     this->textures.emplace_back();
     this->quads.emplace_back();
     return this->shaders.size() - 1;
+}
+
+extern "C"
+JNIEXPORT void JNICALL
+Java_com_example_testeopengl_NativeRenderer_SetFragment(JNIEnv *env, jclass clazz, jobject fragInstance) {
+    FragmentClass = env->FindClass("com/example/testeopengl/FirstFragment");
+    Fragment = env->NewGlobalRef(fragInstance);
+    Fragment_setFrameState = env->GetMethodID(FragmentClass, "setFrameState", "(I)V");
 }

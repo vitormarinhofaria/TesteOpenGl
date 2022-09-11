@@ -5,6 +5,7 @@ plugins {
 
 android {
     compileSdk 33
+    ndkVersion "25.1.8937393"
 
     defaultConfig {
         applicationId "com.example.testeopengl"
@@ -16,7 +17,7 @@ android {
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         externalNativeBuild {
             cmake {
-                arguments '-DCMAKE_TOOLCHAIN_FILE=C:/src/vcpkg/scripts/buildsystems/vcpkg.cmake', '-DVCPKG_CHAINLOAD_TOOLCHAIN_FILE=C:\\Users\\vitor\\AppData\\Local\\Android\\Sdk\\ndk\\25.1.8937393\\build\\cmake\\android.toolchain.cmake'
+                //arguments '-DCMAKE_TOOLCHAIN_FILE=~/dev_tools/vcpkg/scripts/buildsystems/vcpkg.cmake', '-DVCPKG_CHAINLOAD_TOOLCHAIN_FILE=~/Android/Sdk/ndk/25.1.8937393/build/cmake/android.toolchain.cmake'
                 cppFlags ''
             }
         }

@@ -27,6 +27,12 @@ import java.lang.annotation.Native
 private const val OPEN_DOCUMENT_REQUEST_CODE = 0x33
 class FirstFragment : Fragment() {
 
+    fun setFrameState(framesRendered: Int){
+        activity?.runOnUiThread{
+            binding.textviewFirst.text = "Rendered: $framesRendered";
+        }
+    }
+
     private var _binding: FragmentFirstBinding? = null
 
     // This property is only valid between onCreateView and
@@ -73,13 +79,12 @@ class FirstFragment : Fragment() {
         val width = binding.glPlace.width
         val height = binding.glPlace.height
         NativeRenderer.SetScreenResolution(width, height)
-        //val res = resources.getIdentifier("epic_orchestra_loop", "raw", context?.packageName)
-        val res = resources.getIdentifier("epic", "raw", context?.packageName)
-        val music = resources.openRawResource(res)
+        val music = resources.openRawResource(R.raw.epic)
         //val music = resources.assets.open("res:raw/epic_orchestra_loop.wav")
         val bytes = music.readBytes();
         NativeRenderer.saveMusic(bytes);
 
+        NativeRenderer.SetFragment(this);
         renderer = NativeRenderer()
         binding.glPlace.setRenderer(renderer)
         contentResolver = context?.contentResolver
@@ -111,7 +116,7 @@ class FirstFragment : Fragment() {
     }
 
     fun saveMp4(){
-        val session = FFmpegKit.execute("-framerate 60 -i 'img_%d.png' -c:v libx264 -pix_fmt yuv420p out.mp4")
+        val session = FFmpegKit.execute("-framerate 24 -i 'img%d.png' -i 'gen.wav' -c:v mpeg4 -pix_fmt yuv420p out.mp4")
         if(ReturnCode.isSuccess(session.returnCode)){
            Log.i("OPENGLTESTE", "Success saving video")
         }

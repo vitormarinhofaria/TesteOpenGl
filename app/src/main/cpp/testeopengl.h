@@ -4,6 +4,7 @@
 
 #ifndef TESTEOPENGL_TESTEOPENGL_H
 #define TESTEOPENGL_TESTEOPENGL_H
+#include <jni.h>
 
 #include <vector>
 

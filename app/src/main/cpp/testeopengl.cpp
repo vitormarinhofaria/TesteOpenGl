@@ -6,12 +6,16 @@
 #include <queue>
 #include <functional>
 #include <filesystem>
+#include <fstream>
+#include <thread>
+#include <chrono>
 
 #include <jni.h>
 
 #include <android/log.h>
 #include <android/bitmap.h>
 #include <android/asset_manager.h>
+#include <android/asset_manager_jni.h>
 
 #include <GLES3/gl31.h>
 #include <unistd.h>
@@ -21,6 +25,16 @@
 
 #include "stbi_image_write.h"
 #include "testeopengl.h"
+#include "video_rs.h"
+#include "AudioPlayer.h"
+
+#include "AAssetDataSource.h"
+
+#define MINIMP3_FLOAT_OUTPUT
+#define MINIMP3_IMPLEMENTATION
+
+#include "minimp3.h"
+#include "minimp3_ex.h"
 
 const char *frag = "#version 310 es\n"
                    "precision mediump float;\n"
@@ -63,6 +77,7 @@ glm::mat4 model;
 jobject Fragment;
 jclass FragmentClass;
 jmethodID Fragment_setFrameState;
+jmethodID Fragment_setTextView;
 
 extern "C"
 JNIEXPORT void JNICALL
@@ -79,9 +94,13 @@ Java_com_example_testeopengl_NativeRenderer_onSurfaceChangedNative(JNIEnv *env, 
 
 int quadEnt = -1;
 
-std::vector<int16_t> musicBytes = {};
+std::vector<float> musicBytes = {};
+std::vector<float> musicBytesR = {};
+std::vector<float> musicBytesL = {};
 
 static glm::vec3 modelScale = {1.0f, 1.0f, 1.0f};
+
+AAssetManager *GAssetManager = nullptr;
 
 TinyWav tw;
 static const char *musicFile = "gen.wav";
@@ -101,19 +120,82 @@ Java_com_example_testeopengl_NativeRenderer_onSurfaceCreatedNative(JNIEnv *env, 
     view = glm::lookAt(glm::vec3{0.0f, 0.0f, 1.0f}, {0.0f, 0.0f, 0.0f}, {0.0f, 1.0f, 0.0f});
     model = glm::scale(glm::mat4(1.0f), modelScale);
 
-    tinywav_open_read(&tw, musicFile, TW_INTERLEAVED, false);
-    int16_t samples[2 * 44100];
+    //tinywav_open_read(&tw, musicFile, TW_INTERLEAVED, false);
+    //int16_t samples[2 * 410];
+    //musicBytes.clear();
+//    while (auto read = tinywav_read_f(&tw, samples, 410)) {
+//        for (auto i = 0; i < read; i++) {
+//            if (i % 2 == 0) {
+//                musicBytesL.push_back(samples[i]);
+//            } else {
+//                musicBytesR.push_back(samples[i]);
+//            }
+//            musicBytes.push_back(samples[i]);
+//        }
+//    }
 
-    while (auto read = tinywav_read_f(&tw, samples, 441)) {
-        for (auto i = 0; i < read; i++) {
-            musicBytes.push_back(samples[i]);
-        }
-    }
-    tinywav_close_read(&tw);
+    uint32_t iterations = 1;
+    const uint32_t totalIterations = musicBytes.size() / 9;
+//    for (auto i = 4; i < musicBytes.size() - 4; i += 8) {
+//        int32_t sum = 0;
+//        sum += musicBytes[i - 4];
+//        sum += musicBytes[i - 3];
+//        sum += musicBytes[i - 2];
+//        sum += musicBytes[i - 1];
+//        sum += musicBytes[i];
+//        sum += musicBytes[i + 1];
+//        sum += musicBytes[i + 2];
+//        sum += musicBytes[i + 3];
+//        sum += musicBytes[i + 4];
+//
+//        const int16_t midSample = (int16_t) (sum / (int32_t) 9);
+//        musicBytes[i] = midSample;
+//        if (iterations == 1) {
+//            for (auto x = 0; x < 4; x++) {
+//                musicBytes[x] = midSample;
+//            }
+//        } else if (iterations != totalIterations) {
+//            int16_t prevSample = musicBytes[i - 5];
+//            const int16_t sampleDiff = midSample - prevSample;
+//            const int16_t ratio = sampleDiff / 4;
+//            for (auto x = 3; x >= 0; x--) {
+//                musicBytes[i - x] = prevSample + ratio;
+//                prevSample = musicBytes[i - x];
+//            }
+//        }
+//
+//        iterations += 1;
+//    }
+
+    //tinywav_close_read(&tw);
     lastTime = getNow();
+
+    AudioPlayer::get()->BeginPlay(musicBytesL.data(), musicBytesL.size(), musicBytesR.data());
+
+//    std::thread t([] {
+//#pragma clang diagnostic push
+//#pragma ide diagnostic ignored "EndlessLoop"
+//        while (true) {
+//            auto f = (48000 / 60);
+//            static int musicBufferPtr = 0;
+//            if (musicBufferPtr >= musicBytes.size()) musicBufferPtr = 0;
+//            int16_t *buffer = musicBytes.data() + musicBufferPtr;
+//
+//            auto audioStream = AudioPlayer::get()->m_audioStream;
+//
+//            auto bufferSize = audioStream->getBufferSizeInFrames();
+//            //auto written = AudioPlayer::get()->WriteAudio(buffer, bufferSize);
+//            auto written = audioStream->write(buffer, bufferSize, 10000000);
+//            musicBufferPtr += (written.value() * 1);
+//        }
+//#pragma clang diagnostic pop
+//    });
+//    t.detach();
 }
 
-void saveFrame(int frameNum, JNIEnv* env) {
+std::fstream videoOutput;
+
+void saveFrame(int frameNum, JNIEnv *env) {
     auto bufferSize = G_State->framebuffer.GetPixelsBufferSize();
     auto *buffer = (unsigned char *) malloc(bufferSize);
     G_State->framebuffer.GetPixels(buffer);
@@ -125,15 +207,19 @@ void saveFrame(int frameNum, JNIEnv* env) {
     fileName.append(".png");
 
     auto sr = stbi_write_png(fileName.c_str(), G_State->framebuffer.ScreenSize.x,
-                   G_State->framebuffer.ScreenSize.y, 3,
-                   buffer, G_State->framebuffer.ScreenSize.x * 3);
+                             G_State->framebuffer.ScreenSize.y, 3,
+                             buffer, G_State->framebuffer.ScreenSize.x * 3);
     free(buffer);
-    env->CallVoidMethod(Fragment, Fragment_setFrameState, (jint)frameNum);
+    env->CallVoidMethod(Fragment, Fragment_setFrameState, (jint) frameNum, 500);
     LOG("Frame %d sr is %d %s", frameNum, sr, fileName.c_str());
 }
 
 std::mutex drawMutex{};
 std::queue<std::function<void(JNIEnv *)>> execQ;
+constexpr static int frameRate = 24;
+constexpr static int secondsMax = 10;
+constexpr static int framesMax = frameRate * secondsMax;
+constexpr static double frameDeltaTs = (double) secondsMax / (double) framesMax;
 
 float r, g, b = 0;
 size_t musicPtr = 0;
@@ -150,8 +236,9 @@ Java_com_example_testeopengl_NativeRenderer_onDrawFrameNative(JNIEnv *env, jclas
         execQ.pop();
     }
 
+
     double now = getNow();
-    double delta = now - lastTime;
+    //double delta = now - lastTime;
 
     static bool reversing = false;
     float colorDelta = 0.002f;
@@ -164,7 +251,7 @@ Java_com_example_testeopengl_NativeRenderer_onDrawFrameNative(JNIEnv *env, jclas
     if (reversing)
         colorDelta = -colorDelta;
 
-    r += (colorDelta * static_cast<float>(delta));
+    r += (colorDelta * static_cast<float>(frameDeltaTs));
 
     glViewport(0, 0, 1920, 1080);
     G_State->framebuffer.Bind();
@@ -176,16 +263,25 @@ Java_com_example_testeopengl_NativeRenderer_onDrawFrameNative(JNIEnv *env, jclas
     glm::vec3 modScale = {1.0f, 1.0f, 1.0f};
     if (musicPtr < musicBytes.size()) {
         uint64_t sum = 0;
-        for(auto i = 0; i < (44100/24); i++){
-            auto nval = abs(musicBytes[musicPtr]);
-            sum += nval;
-            musicPtr += 1;
+//        for(auto i = 0; i < (44100/24); i++){
+//            auto nval = abs(musicBytes[musicPtr]);
+//            sum += nval;
+//            musicPtr += 1;
+//        }
+        //auto nval = sum / (44100/24);
+        constexpr int avgSize = 16;
+        constexpr int samplesPerFrame = (44100 / 60);
+        musicPtr += (samplesPerFrame / 2);
+        if (musicPtr >= musicBytes.size()) musicPtr = 0;
+        for (auto i = 0; i < avgSize; i++) {
+            sum += abs(musicBytes[musicPtr + i]);
         }
-        auto nval = sum / (44100/24);
-        modScale.x = (float) nval * 0.0001f;
-        modScale.y = (float) nval * 0.0001f;
+        //auto nval = abs(musicBytes[musicPtr + ((44100/24)/2)]);
+        auto nval = sum / avgSize;
+        musicPtr += (samplesPerFrame / 2);
+        modScale.x = (float) nval * 0.00008f;
+        modScale.y = (float) nval * 0.00008f;
         modScale.z = 1.0f;
-        //musicPtr += 1;
     }
 
     glm::mat4 modelTrans = glm::mat4(1.0f);
@@ -211,12 +307,35 @@ Java_com_example_testeopengl_NativeRenderer_onDrawFrameNative(JNIEnv *env, jclas
     lastTime = getNow();
     static uint64_t frameCount = 0;
     static bool taken = false;
-    if (frameCount < 1104) {
-        saveFrame(frameCount, env);
+    static bool shouldSave = false;
+    if (frameCount == 0 && shouldSave) {
+        initEncoding();
+        //segment.Init(&writer);
     }
-    if (frameCount == 1105 || frameCount == 1) {
-        auto saveMp4_Id = env->GetStaticMethodID(clazz, "saveMp4", "()V");
-        env->CallStaticVoidMethod(clazz, saveMp4_Id);
+    if (frameCount < framesMax && shouldSave) {
+        auto beforeFrame = getNow();
+        if (true) {
+            auto bufferSize = G_State->framebuffer.GetPixelsBufferSize();
+            auto *buffer = (unsigned char *) malloc(bufferSize);
+            G_State->framebuffer.GetPixels(buffer);
+            addFrame(buffer, frameCount);
+            delete buffer;
+
+        } else {
+            saveFrame(frameCount, env);
+        }
+        auto afterFrame = getNow();
+        LOG("Frame took %f", afterFrame - beforeFrame);
+        env->CallVoidMethod(Fragment, Fragment_setFrameState, (jint) frameCount, framesMax);
+    }
+    //if (frameCount == 1105 || frameCount == 1) {
+    if (frameCount == framesMax && shouldSave) {
+        //auto saveMp4_Id = env->GetStaticMethodID(clazz, "saveMp4", "()V");
+        //env->CallStaticVoidMethod(clazz, saveMp4_Id);
+        endEncoding();
+        //auto showToast_mId = env->GetMethodID(FragmentClass, "showToastEndEncoding", "()V");
+        //env->CallVoidMethod(Fragment, showToast_mId);
+        LOG("Ended encoding");
     }
     frameCount++;
     drawMutex.unlock();
@@ -248,12 +367,48 @@ Java_com_example_testeopengl_NativeRenderer_setRawTexture(JNIEnv *env, jclass cl
                                                           jbyteArray bytes) {
 
 }
+
+void applySmoothOperator(std::vector<float> &buffer) {
+    uint32_t iterations = 1;
+    const uint32_t totalIterations = buffer.size() / 9;
+    for (auto i = 4; i < buffer.size() - 4; i += 8) {
+        int32_t sum = 0;
+        sum += buffer[i - 4];
+        sum += buffer[i - 3];
+        sum += buffer[i - 2];
+        sum += buffer[i - 1];
+        sum += buffer[i];
+        sum += buffer[i + 1];
+        sum += buffer[i + 2];
+        sum += buffer[i + 3];
+        sum += buffer[i + 4];
+
+        const int16_t midSample = (int16_t) (sum / (int32_t) 9);
+        buffer[i] = midSample;
+        if (iterations == 1) {
+            for (auto x = 0; x < 4; x++) {
+                buffer[x] = midSample;
+            }
+        } else if (iterations != totalIterations) {
+            int16_t prevSample = buffer[i - 5];
+            const int16_t sampleDiff = midSample - prevSample;
+            const int16_t ratio = sampleDiff / 4;
+            for (auto x = 3; x >= 0; x--) {
+                buffer[i - x] = prevSample + ratio;
+                prevSample = buffer[i - x];
+            }
+        }
+
+        iterations += 1;
+    }
+}
+
 extern "C"
 JNIEXPORT void JNICALL
 Java_com_example_testeopengl_NativeRenderer_saveMusic(JNIEnv *env, jclass clazz,
                                                       jbyteArray music_bytes) {
     auto length = env->GetArrayLength(music_bytes);
-    auto bytes = env->GetByteArrayElements(music_bytes, nullptr);
+    auto *bytes = env->GetByteArrayElements(music_bytes, nullptr);
     FILE *file = fopen(std::string("./").append(musicFile).c_str(), "wb+");
     if (!file) {
         LOG("error: %d", errno);
@@ -261,7 +416,109 @@ Java_com_example_testeopengl_NativeRenderer_saveMusic(JNIEnv *env, jclass clazz,
     }
     fwrite(bytes, sizeof(signed char), length, file);
     fclose(file);
-    env->ReleaseByteArrayElements(music_bytes, bytes, 0);
+    auto *asset = AAssetManager_open(GAssetManager, "twice.mp3", AASSET_MODE_BUFFER);
+    auto *mb = (int8_t *) AAsset_getBuffer(asset);
+    auto *l = mb + AAsset_getLength(asset);
+
+//    mp3dec_t mp3d;
+//    mp3dec_init(&mp3d);
+//    float pcm[MINIMP3_MAX_SAMPLES_PER_FRAME];
+//    mp3dec_frame_info_t info{};
+//    auto *mPtr = mb;
+//    auto samples = 0;
+//
+//    do {
+//        if (mPtr + info.frame_bytes > l || mPtr + samples > l) {
+//            break;
+//        }
+//        samples = mp3dec_decode_frame(&mp3d, reinterpret_cast<const uint8_t *>(mPtr),
+//                                      MINIMP3_MAX_SAMPLES_PER_FRAME, pcm, &info);
+//        mPtr += info.frame_bytes;
+//        for (auto i = 0; i < samples; i += 1) {
+//            if (info.channels == 1) {
+//                musicBytesL.push_back(pcm[i]);
+//            } else {
+//                if (i % 2 == 0) {
+//                    musicBytesL.push_back(pcm[i]);
+//                } else {
+//                    musicBytesR.push_back(pcm[i]);
+//                }
+//            }
+//
+//            musicBytes.push_back(pcm[i]);
+//        }
+//    } while (samples > 0 && info.frame_bytes > 0 && mPtr < l);
+    AAsset_close(asset);
+
+    AudioProperties targetProperties{.channelCount = 2, .sampleRate = 48000};
+    std::shared_ptr<AAssetDataSource> audioFile{
+            AAssetDataSource::newFromCompressedAsset(*GAssetManager, "twice.mp3", targetProperties)
+    };
+    musicBytes.clear();
+    musicBytes.resize(audioFile->getSize());
+    std::memcpy(musicBytes.data(), audioFile->getData(), audioFile->getSize());
+    auto index = 0;
+    for (auto sample: musicBytes) {
+        if (index % 2 == 0) {
+            musicBytesL.push_back(sample);
+        } else {
+            musicBytesR.push_back(sample);
+        }
+        index += 1;
+    }
+
+    musicBytes.clear();
+    musicBytes.reserve(audioFile->getSize());
+
+    applySmoothOperator(musicBytesL);
+    for (auto i = 0; i < musicBytesL.size(); i++) {
+        musicBytes.push_back(musicBytesL[i]);
+        //musicBytes.push_back(musicBytesR[i]);
+        musicBytes.push_back(0);
+    }
+
+    std::shared_ptr<AAssetDataSource> modAudio{
+            AAssetDataSource::fromRaw(musicBytes.data(), musicBytes.size(), targetProperties)};
+
+    //AudioPlayer::get()->m_audioPlayer = std::make_unique<Player>(audioFile);
+    AudioPlayer::get()->m_audioPlayer = std::make_unique<Player>(modAudio);
+    AudioPlayer::get()->m_audioPlayer->setPlaying(true);
+    AudioPlayer::get()->m_audioPlayer->setLooping(true);
+
+//    std::thread t([] {
+//#pragma clang diagnostic push
+//#pragma ide diagnostic ignored "EndlessLoop"
+//        float *buffer = nullptr;
+//        auto bufferSize = 0;
+//        {
+//            auto audioStream = AudioPlayer::get()->m_audioStream;
+//            bufferSize = audioStream->getBufferSizeInFrames();
+//            buffer = (float *) malloc(bufferSize * 2);
+//        }
+//
+//        while (true) {
+//            static int musicBufferPtr = 0;
+//            if (musicBufferPtr >= musicBytesL.size()) musicBufferPtr = 0;
+//
+//            auto audioStream = AudioPlayer::get()->m_audioStream;
+//
+//            for (auto i = 0; i < bufferSize; i++) {
+//                buffer[i * 2] = musicBytesL[i + musicBufferPtr];
+//                buffer[i * 2 + 1] = musicBytesL[i + musicBufferPtr];
+//            }
+//            //auto written = AudioPlayer::get()->WriteAudio(buffer, bufferSize);
+//            auto written = audioStream->write(buffer, bufferSize, 120);
+//            musicBufferPtr += written.value();
+//            using namespace std::chrono_literals;
+//            std::this_thread::sleep_for(10ms);
+//        }
+//        free(buffer);
+//#pragma clang diagnostic pop
+//    });
+//    t.detach();
+
+    env->ReleaseByteArrayElements(music_bytes, bytes,
+                                  0);
 }
 extern "C"
 JNIEXPORT void JNICALL
@@ -304,10 +561,23 @@ int State::newEntity() {
     return this->shaders.size() - 1;
 }
 
+jobject jassetManagerRef;
 extern "C"
 JNIEXPORT void JNICALL
-Java_com_example_testeopengl_NativeRenderer_SetFragment(JNIEnv *env, jclass clazz, jobject fragInstance) {
+Java_com_example_testeopengl_NativeRenderer_SetFragment(JNIEnv *env, jclass clazz,
+                                                        jobject fragInstance,
+                                                        jobject assetManager) {
+    loadLib();
     FragmentClass = env->FindClass("com/example/testeopengl/FirstFragment");
     Fragment = env->NewGlobalRef(fragInstance);
-    Fragment_setFrameState = env->GetMethodID(FragmentClass, "setFrameState", "(I)V");
+    Fragment_setFrameState = env->GetMethodID(FragmentClass, "setFrameState", "(II)V");
+    Fragment_setTextView = env->GetMethodID(FragmentClass, "setVersionText",
+                                            "(Ljava/lang/String;)V");
+    const char *av_info = avcodec_configuration();
+    auto jString = env->NewStringUTF(av_info);
+    env->CallVoidMethod(Fragment, Fragment_setTextView, jString);
+    env->DeleteLocalRef(jString);
+
+    jassetManagerRef = env->NewGlobalRef(assetManager);
+    GAssetManager = AAssetManager_fromJava(env, assetManager);
 }

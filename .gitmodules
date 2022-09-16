@@ -4,3 +4,6 @@
 [submodule "app/src/main/cpp/openh264"]
 	path = app/src/main/cpp/openh264
 	url = https://github.com/cisco/openh264.git
+[submodule "app/src/main/cpp/AVI20"]
+	path = app/src/main/cpp/AVI20
+	url = https://github.com/TechSmith/AVI20.git

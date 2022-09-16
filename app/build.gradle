@@ -2,7 +2,13 @@ plugins {
     id 'com.android.application'
     id 'org.jetbrains.kotlin.android'
 }
-
+//apply plugin: 'org.mozilla.rust-android-gradle.rust-android'
+//cargo {
+//    module  = "C:/src/rust/video_rs_android"       // Or whatever directory contains your Cargo.toml
+//    libname = "video_rs_android"          // Or whatever matches Cargo.toml's [package] name.
+//    targets = ["arm64", "x86_64"]  // See bellow for a longer list of options
+//
+//}
 android {
     compileSdk 33
     ndkVersion "25.1.8937393"
@@ -19,6 +25,7 @@ android {
             cmake {
                 //arguments '-DCMAKE_TOOLCHAIN_FILE=~/dev_tools/vcpkg/scripts/buildsystems/vcpkg.cmake', '-DVCPKG_CHAINLOAD_TOOLCHAIN_FILE=~/Android/Sdk/ndk/25.1.8937393/build/cmake/android.toolchain.cmake'
                 cppFlags ''
+                arguments '-DANDROID_STL=c++_shared'
             }
         }
         signingConfig signingConfigs.debug
@@ -39,10 +46,16 @@ android {
     }
     buildFeatures {
         viewBinding true
+        prefab true
+    }
+    sourceSets {
+        main {
+            // let gradle pack the shared library into apk
+            jniLibs.srcDirs = ['src/main/cpp/libs/']
+        }
     }
     externalNativeBuild {
         cmake {
-
             path file('src/main/cpp/CMakeLists.txt')
             version '3.22.1'
         }
@@ -62,4 +75,6 @@ dependencies {
     androidTestImplementation 'androidx.test.espresso:espresso-core:3.4.0'
 
     implementation 'com.arthenica:ffmpeg-kit-full:4.5.1-1.LTS'
+
+    implementation 'com.google.oboe:oboe:1.6.1'
 }

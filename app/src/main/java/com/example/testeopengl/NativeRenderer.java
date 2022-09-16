@@ -1,5 +1,6 @@
 package com.example.testeopengl;
 
+import android.content.res.AssetManager;
 import android.graphics.Bitmap;
 
 import android.opengl.EGL14;
@@ -35,7 +36,8 @@ public class NativeRenderer implements GLSurfaceView.Renderer {
     public static native void takePrint();
     public static native void SetScreenResolution(int width, int height);
 
-    public static native void SetFragment(FirstFragment frag);
+    public static native void SetFragment(FirstFragment frag, AssetManager assetManager);
+    public static native void CreateAudioWithDeviceId(int id);
 
     public static void TakePrint(){
         Bitmap.createBitmap(350, 240, Bitmap.Config.RGB_565);
@@ -63,7 +65,7 @@ public class NativeRenderer implements GLSurfaceView.Renderer {
     }
 
     static void saveMp4(){
-        FFmpegSession session = FFmpegKit.execute("-framerate 24 -i Frames/img%d.png -i gen.wav -c:v mpeg4 -pix_fmt yuv420p out.mp4");
+        FFmpegSession session = FFmpegKit.execute("-framerate 24 -i Frames/img%d.png -i gen.wav -c:v libvpx-vp9 -pix_fmt yuv420p -y out.mp4");
         if(ReturnCode.isSuccess(session.getReturnCode())){
             Log.i("OPENGLTESTE", "Success saving video");
         }else{

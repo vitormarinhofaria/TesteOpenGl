@@ -8,6 +8,10 @@
 
 #include <vector>
 
+extern "C"{
+    #include <libavcodec/avcodec.h>
+};
+
 #include "LogUtils.h"
 #include "Shader.h"
 #include "Texture2D.h"
@@ -50,6 +54,7 @@ struct State {
     int newEntity();
     int entityCount = -1;
 
+    AAssetManager* m_assetManager = nullptr;
 };
 
 #endif //TESTEOPENGL_TESTEOPENGL_H

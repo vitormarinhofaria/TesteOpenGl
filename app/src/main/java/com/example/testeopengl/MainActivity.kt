@@ -1,12 +1,17 @@
 package com.example.testeopengl
 
+import android.Manifest.permission.MANAGE_EXTERNAL_STORAGE
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.media.AudioManager
+import android.media.AudioManager.GET_DEVICES_OUTPUTS
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.Environment
 import android.provider.Settings
+import android.util.Log
 import android.view.Menu
 import android.view.MenuItem
 import android.widget.Toast
@@ -16,6 +21,7 @@ import androidx.navigation.findNavController
 import androidx.navigation.ui.AppBarConfiguration
 import androidx.navigation.ui.navigateUp
 import androidx.navigation.ui.setupActionBarWithNavController
+import com.arthenica.ffmpegkit.FFmpegKit
 import com.example.testeopengl.databinding.ActivityMainBinding
 import com.google.android.material.snackbar.Snackbar
 
@@ -45,31 +51,34 @@ class MainActivity : AppCompatActivity() {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
     }
 
+
     @RequiresApi(Build.VERSION_CODES.R)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        if (Environment.isExternalStorageManager()) {
-
-// If you don't have access, launch a new activity to show the user the system's dialog
-// to allow access to the external storage
-        } else {
-            val intent = Intent()
-            intent.action = Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION
-            val uri: Uri = Uri.fromParts("package", this.packageName, null)
-            intent.data = uri
-            startActivity(intent)
-        }
-//        if (checkSelfPermission(Manifest.permission.MANAGE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_DENIED
-//        ) {
-//            requestPermissions(
-//                arrayOf(
-//                    Manifest.permission.MANAGE_EXTERNAL_STORAGE
-//                ), 0
-//            )
-//        } else {
-//            Log.d("PERMISSION", "Manage Permission Granted")
+//        if (!Environment.isExternalStorageManager()) {
+//            val intent = Intent()
+//            intent.action = Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION
+//            val uri: Uri = Uri.fromParts("package", this.packageName, null)
+//            intent.data = uri
+//            startActivity(intent)
 //        }
 
+        if (checkSelfPermission(MANAGE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_DENIED
+        ) {
+            requestPermissions(
+                arrayOf(
+                    MANAGE_EXTERNAL_STORAGE
+                ), 0
+            )
+        } else {
+            Log.d("PERMISSION", "Manage Permission Granted")
+        }
+
+        val audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+        val audioDevices = audioManager.getDevices(GET_DEVICES_OUTPUTS)
+
+        //NativeRenderer.CreateAudioWithDeviceId(audioDevices[2].id)
+        NativeRenderer.CreateAudioWithDeviceId(0)
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 

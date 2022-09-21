@@ -32,7 +32,7 @@ public:
             AAssetManager &assetManager,
             const char *filename,
             AudioProperties targetProperties);
-    static AAssetDataSource* fromRaw(float* buffer, int size, AudioProperties props);
+    static AAssetDataSource* fromRaw(float* buffer, size_t size, AudioProperties props);
 
 private:
 

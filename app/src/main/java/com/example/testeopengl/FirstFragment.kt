@@ -80,6 +80,9 @@ class FirstFragment : Fragment() {
         }
 
         binding.btnSave.setOnClickListener { NativeRenderer.takePrint() }
+        binding.btnPlay.setOnClickListener { NativeRenderer.PlayMusic() }
+        binding.btnPause.setOnClickListener { NativeRenderer.PauseMusic() }
+        binding.btnReset.setOnClickListener { NativeRenderer.ResetMusic() }
 
         val internalStorage = Environment.getStorageDirectory().absolutePath;
         val externalStorage = Environment.getExternalStorageDirectory().absolutePath;

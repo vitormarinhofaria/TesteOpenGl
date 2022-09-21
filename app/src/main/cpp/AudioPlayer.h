@@ -14,9 +14,9 @@
 
 class AudioPlayer: public oboe::AudioStreamDataCallback {
 public:
-    AAudioStream* aaudio_stream;
+    AAudioStream* aaudio_stream{};
     int bufferSize = 0;
-    AudioPlayer();
+    AudioPlayer() = default;
     void Init(int id);
     void BeginPlay(void* bufferL, int maxSize, void* bufferR) const;
     int WriteAudio(int16_t* samples, int numFrames) const;

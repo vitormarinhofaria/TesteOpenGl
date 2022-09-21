@@ -59,10 +59,11 @@ const char *vert = "#version 310 es\n"
 
 std::string BasePath = "";
 
+///Return time in milliseconds
 double getNow() {
     timespec ts{};
     clock_gettime(CLOCK_REALTIME, &ts);
-    return 1000.0 * ts.tv_sec + (double) ts.tv_nsec / 1e6;
+    return (double) ts.tv_nsec / 1e6;
 }
 
 double lastTime = 0;
@@ -97,6 +98,7 @@ int quadEnt = -1;
 std::vector<float> musicBytes = {};
 std::vector<float> musicBytesR = {};
 std::vector<float> musicBytesL = {};
+std::vector<float> filteredBytesL = {};
 
 static glm::vec3 modelScale = {1.0f, 1.0f, 1.0f};
 
@@ -120,77 +122,9 @@ Java_com_example_testeopengl_NativeRenderer_onSurfaceCreatedNative(JNIEnv *env, 
     view = glm::lookAt(glm::vec3{0.0f, 0.0f, 1.0f}, {0.0f, 0.0f, 0.0f}, {0.0f, 1.0f, 0.0f});
     model = glm::scale(glm::mat4(1.0f), modelScale);
 
-    //tinywav_open_read(&tw, musicFile, TW_INTERLEAVED, false);
-    //int16_t samples[2 * 410];
-    //musicBytes.clear();
-//    while (auto read = tinywav_read_f(&tw, samples, 410)) {
-//        for (auto i = 0; i < read; i++) {
-//            if (i % 2 == 0) {
-//                musicBytesL.push_back(samples[i]);
-//            } else {
-//                musicBytesR.push_back(samples[i]);
-//            }
-//            musicBytes.push_back(samples[i]);
-//        }
-//    }
-
-    uint32_t iterations = 1;
-    const uint32_t totalIterations = musicBytes.size() / 9;
-//    for (auto i = 4; i < musicBytes.size() - 4; i += 8) {
-//        int32_t sum = 0;
-//        sum += musicBytes[i - 4];
-//        sum += musicBytes[i - 3];
-//        sum += musicBytes[i - 2];
-//        sum += musicBytes[i - 1];
-//        sum += musicBytes[i];
-//        sum += musicBytes[i + 1];
-//        sum += musicBytes[i + 2];
-//        sum += musicBytes[i + 3];
-//        sum += musicBytes[i + 4];
-//
-//        const int16_t midSample = (int16_t) (sum / (int32_t) 9);
-//        musicBytes[i] = midSample;
-//        if (iterations == 1) {
-//            for (auto x = 0; x < 4; x++) {
-//                musicBytes[x] = midSample;
-//            }
-//        } else if (iterations != totalIterations) {
-//            int16_t prevSample = musicBytes[i - 5];
-//            const int16_t sampleDiff = midSample - prevSample;
-//            const int16_t ratio = sampleDiff / 4;
-//            for (auto x = 3; x >= 0; x--) {
-//                musicBytes[i - x] = prevSample + ratio;
-//                prevSample = musicBytes[i - x];
-//            }
-//        }
-//
-//        iterations += 1;
-//    }
-
-    //tinywav_close_read(&tw);
     lastTime = getNow();
 
     AudioPlayer::get()->BeginPlay(musicBytesL.data(), musicBytesL.size(), musicBytesR.data());
-
-//    std::thread t([] {
-//#pragma clang diagnostic push
-//#pragma ide diagnostic ignored "EndlessLoop"
-//        while (true) {
-//            auto f = (48000 / 60);
-//            static int musicBufferPtr = 0;
-//            if (musicBufferPtr >= musicBytes.size()) musicBufferPtr = 0;
-//            int16_t *buffer = musicBytes.data() + musicBufferPtr;
-//
-//            auto audioStream = AudioPlayer::get()->m_audioStream;
-//
-//            auto bufferSize = audioStream->getBufferSizeInFrames();
-//            //auto written = AudioPlayer::get()->WriteAudio(buffer, bufferSize);
-//            auto written = audioStream->write(buffer, bufferSize, 10000000);
-//            musicBufferPtr += (written.value() * 1);
-//        }
-//#pragma clang diagnostic pop
-//    });
-//    t.detach();
 }
 
 std::fstream videoOutput;
@@ -223,6 +157,7 @@ constexpr static double frameDeltaTs = (double) secondsMax / (double) framesMax;
 
 float r, g, b = 0;
 size_t musicPtr = 0;
+bool musicIsPlaying = true;
 extern "C"
 JNIEXPORT void JNICALL
 Java_com_example_testeopengl_NativeRenderer_onDrawFrameNative(JNIEnv *env, jclass clazz,
@@ -238,7 +173,8 @@ Java_com_example_testeopengl_NativeRenderer_onDrawFrameNative(JNIEnv *env, jclas
 
 
     double now = getNow();
-    //double delta = now - lastTime;
+    double deltaTime = now - lastTime;
+    lastTime = now;
 
     static bool reversing = false;
     float colorDelta = 0.002f;
@@ -259,34 +195,41 @@ Java_com_example_testeopengl_NativeRenderer_onDrawFrameNative(JNIEnv *env, jclas
     glClearColor(r, 0.5, 0.2, 1.0);
     glClear(GL_COLOR_BUFFER_BIT);
 
-    if (musicPtr == musicBytes.size()) { musicPtr = 0; }
+    if (musicPtr == 0 && musicIsPlaying) {
+        AudioPlayer::get()->m_audioPlayer->setPlaying(true);
+    }
+    if (musicPtr == musicBytesL.size()) { musicPtr = 0; }
     glm::vec3 modScale = {1.0f, 1.0f, 1.0f};
-    if (musicPtr < musicBytes.size()) {
-        uint64_t sum = 0;
-//        for(auto i = 0; i < (44100/24); i++){
-//            auto nval = abs(musicBytes[musicPtr]);
-//            sum += nval;
-//            musicPtr += 1;
-//        }
-        //auto nval = sum / (44100/24);
-        constexpr int avgSize = 16;
-        constexpr int samplesPerFrame = (44100 / 60);
-        musicPtr += (samplesPerFrame / 2);
-        if (musicPtr >= musicBytes.size()) musicPtr = 0;
+    if (musicPtr < musicBytesL.size()) {
+        double sum = 0;
+
+        auto samplesPerFrame = size_t(48000.0f * (deltaTime / 1000));
+        size_t avgSize = samplesPerFrame / 2;
+        musicPtr += samplesPerFrame;
+        if (musicPtr >= musicBytesL.size()) musicPtr = 0;
+
+        auto samplesUsed = 0;
         for (auto i = 0; i < avgSize; i++) {
-            sum += abs(musicBytes[musicPtr + i]);
+            float val = musicBytesL[musicPtr + i * 2];
+            samplesUsed++;
+            if (val < 0) {
+                val *= -1;
+            }
+            sum += val;
+
         }
         //auto nval = abs(musicBytes[musicPtr + ((44100/24)/2)]);
-        auto nval = sum / avgSize;
-        musicPtr += (samplesPerFrame / 2);
-        modScale.x = (float) nval * 0.00008f;
-        modScale.y = (float) nval * 0.00008f;
+
+        auto nval = (float) (sum / samplesUsed);
+        musicPtr += samplesPerFrame;
+        modScale.x = nval * 0.8f;
+        modScale.y = nval * 0.8f;
         modScale.z = 1.0f;
     }
 
     glm::mat4 modelTrans = glm::mat4(1.0f);
     modelTrans = glm::translate(modelTrans, glm::vec3{0.0, 0.0f, 0.0f});
-    modelTrans = glm::scale(modelTrans, modScale);
+    modelTrans = glm::scale(modelTrans, modScale + glm::vec3{1.0f, 1.0f, 1.0f});
 
     //glm::mat4 mvp = proj * view * modelTrans;
     glm::mat4 mvp = proj * view * modelTrans;
@@ -372,7 +315,7 @@ void applySmoothOperator(std::vector<float> &buffer) {
     uint32_t iterations = 1;
     const uint32_t totalIterations = buffer.size() / 9;
     for (auto i = 4; i < buffer.size() - 4; i += 8) {
-        int32_t sum = 0;
+        float sum = 0;
         sum += buffer[i - 4];
         sum += buffer[i - 3];
         sum += buffer[i - 2];
@@ -383,18 +326,18 @@ void applySmoothOperator(std::vector<float> &buffer) {
         sum += buffer[i + 3];
         sum += buffer[i + 4];
 
-        const int16_t midSample = (int16_t) (sum / (int32_t) 9);
+        const float midSample = sum / 9;
         buffer[i] = midSample;
         if (iterations == 1) {
             for (auto x = 0; x < 4; x++) {
                 buffer[x] = midSample;
             }
         } else if (iterations != totalIterations) {
-            int16_t prevSample = buffer[i - 5];
-            const int16_t sampleDiff = midSample - prevSample;
-            const int16_t ratio = sampleDiff / 4;
+            float prevSample = buffer[i - 5];
+            const float sampleDiff = midSample - prevSample;
+            const float diffRatio = sampleDiff / 4;
             for (auto x = 3; x >= 0; x--) {
-                buffer[i - x] = prevSample + ratio;
+                buffer[i - x] = prevSample + diffRatio;
                 prevSample = buffer[i - x];
             }
         }
@@ -407,118 +350,77 @@ extern "C"
 JNIEXPORT void JNICALL
 Java_com_example_testeopengl_NativeRenderer_saveMusic(JNIEnv *env, jclass clazz,
                                                       jbyteArray music_bytes) {
-    auto length = env->GetArrayLength(music_bytes);
-    auto *bytes = env->GetByteArrayElements(music_bytes, nullptr);
-    FILE *file = fopen(std::string("./").append(musicFile).c_str(), "wb+");
-    if (!file) {
-        LOG("error: %d", errno);
-        perror("failed opening file to write");
-    }
-    fwrite(bytes, sizeof(signed char), length, file);
-    fclose(file);
-    auto *asset = AAssetManager_open(GAssetManager, "twice.mp3", AASSET_MODE_BUFFER);
-    auto *mb = (int8_t *) AAsset_getBuffer(asset);
-    auto *l = mb + AAsset_getLength(asset);
+//    auto length = env->GetArrayLength(music_bytes);
+//    auto *bytes = env->GetByteArrayElements(music_bytes, nullptr);
+//    FILE *file = fopen(std::string("./").append(musicFile).c_str(), "wb+");
+//    if (!file) {
+//        LOG("error: %d", errno);
+//        perror("failed opening file to write");
+//    }
+//    fwrite(bytes, sizeof(signed char), length, file);
+//    fclose(file);
 
-//    mp3dec_t mp3d;
-//    mp3dec_init(&mp3d);
-//    float pcm[MINIMP3_MAX_SAMPLES_PER_FRAME];
-//    mp3dec_frame_info_t info{};
-//    auto *mPtr = mb;
-//    auto samples = 0;
-//
-//    do {
-//        if (mPtr + info.frame_bytes > l || mPtr + samples > l) {
-//            break;
-//        }
-//        samples = mp3dec_decode_frame(&mp3d, reinterpret_cast<const uint8_t *>(mPtr),
-//                                      MINIMP3_MAX_SAMPLES_PER_FRAME, pcm, &info);
-//        mPtr += info.frame_bytes;
-//        for (auto i = 0; i < samples; i += 1) {
-//            if (info.channels == 1) {
-//                musicBytesL.push_back(pcm[i]);
-//            } else {
-//                if (i % 2 == 0) {
-//                    musicBytesL.push_back(pcm[i]);
-//                } else {
-//                    musicBytesR.push_back(pcm[i]);
-//                }
-//            }
-//
-//            musicBytes.push_back(pcm[i]);
-//        }
-//    } while (samples > 0 && info.frame_bytes > 0 && mPtr < l);
+    auto *asset = AAssetManager_open(GAssetManager, "twice.mp3", AASSET_MODE_BUFFER);
+    auto assetSize = AAsset_getRemainingLength64(asset);
+    std::vector<uint8_t> assetBuffer;
+    assetBuffer.resize(assetSize);
+    auto readResult = AAsset_read(asset, assetBuffer.data(), assetSize);
     AAsset_close(asset);
 
-    AudioProperties targetProperties{.channelCount = 2, .sampleRate = 48000};
-    std::shared_ptr<AAssetDataSource> audioFile{
-            AAssetDataSource::newFromCompressedAsset(*GAssetManager, "twice.mp3", targetProperties)
-    };
-    musicBytes.clear();
-    musicBytes.resize(audioFile->getSize());
-    std::memcpy(musicBytes.data(), audioFile->getData(), audioFile->getSize());
-    auto index = 0;
-    for (auto sample: musicBytes) {
-        if (index % 2 == 0) {
-            musicBytesL.push_back(sample);
-        } else {
-            musicBytesR.push_back(sample);
-        }
-        index += 1;
+    mp3dec_t mp3d;
+    mp3dec_init(&mp3d);
+
+    mp3dec_t mp3dec;
+    mp3dec_file_info_t info{};
+    std::vector<uint8_t> recBuffer{};
+    recBuffer.resize(MINIMP3_BUF_SIZE * 10);
+    auto result = mp3dec_load_buf(&mp3dec, assetBuffer.data(), assetBuffer.size(), &info, nullptr,
+                                  nullptr);
+    if (result != 0) {
+        LOG("Failed to decode MP3. Result is: %d", result);
     }
 
+
     musicBytes.clear();
-    musicBytes.reserve(audioFile->getSize());
+    musicBytes.resize(info.samples * info.channels);
+    std::memcpy(musicBytes.data(), info.buffer, info.samples * info.channels);
+    free(info.buffer);
+
+    ///Prepare the Left and Right channels buffers for receiving their separated samples
+    musicBytesL.reserve(musicBytes.size() / 2);
+    musicBytesR.reserve(musicBytes.size() / 2);
+    for (auto i = 0; i < musicBytes.size(); i++) {
+        if (i % 2 == 0) {
+            musicBytesL.push_back(musicBytes[i]);
+        } else {
+            musicBytesR.push_back(musicBytes[i]);
+        }
+    }
+
+    ///Clear the main music samples buffer before applying effects to individual channels and joining then
+    musicBytes.clear();
+    musicBytes.reserve(info.samples * info.channels);
+
+    std::vector<float> originalChanL = musicBytesL;
+    std::vector<float> originalChanR = musicBytesR;
 
     applySmoothOperator(musicBytesL);
+    applySmoothOperator(musicBytesR);
     for (auto i = 0; i < musicBytesL.size(); i++) {
-        musicBytes.push_back(musicBytesL[i]);
-        //musicBytes.push_back(musicBytesR[i]);
-        musicBytes.push_back(0);
+        musicBytes.push_back(musicBytesL[i] + originalChanL[i]);
+        musicBytes.push_back(musicBytesR[i] + originalChanR[i]);
     }
+    filteredBytesL = originalChanL;
 
+    AudioProperties targetProperties{.channelCount = info.channels, .sampleRate = info.hz};
     std::shared_ptr<AAssetDataSource> modAudio{
             AAssetDataSource::fromRaw(musicBytes.data(), musicBytes.size(), targetProperties)};
 
-    //AudioPlayer::get()->m_audioPlayer = std::make_unique<Player>(audioFile);
     AudioPlayer::get()->m_audioPlayer = std::make_unique<Player>(modAudio);
-    AudioPlayer::get()->m_audioPlayer->setPlaying(true);
     AudioPlayer::get()->m_audioPlayer->setLooping(true);
 
-//    std::thread t([] {
-//#pragma clang diagnostic push
-//#pragma ide diagnostic ignored "EndlessLoop"
-//        float *buffer = nullptr;
-//        auto bufferSize = 0;
-//        {
-//            auto audioStream = AudioPlayer::get()->m_audioStream;
-//            bufferSize = audioStream->getBufferSizeInFrames();
-//            buffer = (float *) malloc(bufferSize * 2);
-//        }
-//
-//        while (true) {
-//            static int musicBufferPtr = 0;
-//            if (musicBufferPtr >= musicBytesL.size()) musicBufferPtr = 0;
-//
-//            auto audioStream = AudioPlayer::get()->m_audioStream;
-//
-//            for (auto i = 0; i < bufferSize; i++) {
-//                buffer[i * 2] = musicBytesL[i + musicBufferPtr];
-//                buffer[i * 2 + 1] = musicBytesL[i + musicBufferPtr];
-//            }
-//            //auto written = AudioPlayer::get()->WriteAudio(buffer, bufferSize);
-//            auto written = audioStream->write(buffer, bufferSize, 120);
-//            musicBufferPtr += written.value();
-//            using namespace std::chrono_literals;
-//            std::this_thread::sleep_for(10ms);
-//        }
-//        free(buffer);
-//#pragma clang diagnostic pop
-//    });
-//    t.detach();
-
-    env->ReleaseByteArrayElements(music_bytes, bytes,
-                                  0);
+//    env->ReleaseByteArrayElements(music_bytes, bytes,
+//                                  0);
 }
 extern "C"
 JNIEXPORT void JNICALL
@@ -580,4 +482,24 @@ Java_com_example_testeopengl_NativeRenderer_SetFragment(JNIEnv *env, jclass claz
 
     jassetManagerRef = env->NewGlobalRef(assetManager);
     GAssetManager = AAssetManager_fromJava(env, assetManager);
+}
+extern "C"
+JNIEXPORT void JNICALL
+Java_com_example_testeopengl_NativeRenderer_PlayMusic(JNIEnv *env, jclass clazz) {
+    musicPtr = 0;
+    AudioPlayer::get()->m_audioPlayer->setPlaying(true);
+    musicIsPlaying = true;
+}
+extern "C"
+JNIEXPORT void JNICALL
+Java_com_example_testeopengl_NativeRenderer_PauseMusic(JNIEnv *env, jclass clazz) {
+    AudioPlayer::get()->m_audioPlayer->setPlaying(false);
+    musicPtr = 0;
+    musicIsPlaying = false;
+}
+extern "C"
+JNIEXPORT void JNICALL
+Java_com_example_testeopengl_NativeRenderer_ResetMusic(JNIEnv *env, jclass clazz) {
+    musicPtr = 0;
+    AudioPlayer::get()->m_audioPlayer->resetPlayHead();
 }

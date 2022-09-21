@@ -79,10 +79,10 @@ AAssetDataSource* AAssetDataSource::newFromCompressedAsset(
             targetProperties);
 }
 
-AAssetDataSource* AAssetDataSource::fromRaw(float *buffer, int size, AudioProperties props) {
+AAssetDataSource* AAssetDataSource::fromRaw(float *buffer, size_t size, AudioProperties props) {
     auto outBuffer = std::make_unique<float[]>(size);
 
     std::memcpy(outBuffer.get(), buffer, size);
 
-    return new AAssetDataSource(std::move(outBuffer), size / props.channelCount, props);
+    return new AAssetDataSource(std::move(outBuffer), size, props);
 }

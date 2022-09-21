@@ -39,6 +39,10 @@ public class NativeRenderer implements GLSurfaceView.Renderer {
     public static native void SetFragment(FirstFragment frag, AssetManager assetManager);
     public static native void CreateAudioWithDeviceId(int id);
 
+    public static native void PlayMusic();
+    public static native void PauseMusic();
+    public static native void ResetMusic();
+
     public static void TakePrint(){
         Bitmap.createBitmap(350, 240, Bitmap.Config.RGB_565);
     }

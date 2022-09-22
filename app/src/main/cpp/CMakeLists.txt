@@ -65,7 +65,7 @@ target_link_libraries( # Specifies the target library.
 
                        # Links the target library to the log library
                        # included in the NDK.
-                       ${log-lib} GLESv3 jnigraphics glm avformat avcodec avutil AAudio oboe::oboe android mediandk)
+                       ${log-lib} GLESv3 jnigraphics glm avformat avcodec avutil oboe::oboe android mediandk)
 
 target_include_directories(testeopengl PRIVATE glm)
 

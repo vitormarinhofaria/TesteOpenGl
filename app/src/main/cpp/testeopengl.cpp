@@ -174,7 +174,8 @@ Java_com_example_testeopengl_NativeRenderer_onDrawFrameNative(JNIEnv *env, jclas
 
     double now = getNow();
     double deltaTime = now - lastTime;
-    lastTime = now;
+    if(deltaTime < 0) deltaTime = 0;
+    lastTime = getNow();
 
     static bool reversing = false;
     float colorDelta = 0.002f;
@@ -211,19 +212,18 @@ Java_com_example_testeopengl_NativeRenderer_onDrawFrameNative(JNIEnv *env, jclas
         auto samplesUsed = 0;
         for (auto i = 0; i < avgSize; i++) {
             float val = musicBytesL[musicPtr + i * 2];
-            samplesUsed++;
-            if (val < 0) {
-                val *= -1;
+            if(val > 1.0f){
+                LOG("This should not happen");
             }
+            samplesUsed++;
             sum += val;
-
         }
-        //auto nval = abs(musicBytes[musicPtr + ((44100/24)/2)]);
-
         auto nval = (float) (sum / samplesUsed);
+        if(nval < 0) nval = 0;
+
         musicPtr += samplesPerFrame;
-        modScale.x = nval * 0.8f;
-        modScale.y = nval * 0.8f;
+        modScale.x = nval * 0.4f;
+        modScale.y = nval * 0.4f;
         modScale.z = 1.0f;
     }
 

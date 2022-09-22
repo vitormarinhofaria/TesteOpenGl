@@ -93,10 +93,6 @@ void AudioPlayer::Init(int audioId) {
 //    m_audioStream->requestFlush();
 }
 
-int AudioPlayer::WriteAudio(int16_t *samples, int numFrames) const {
-    return AAudioStream_write(aaudio_stream, samples, numFrames, 1600000);
-}
-
 AudioPlayer *AudioPlayer::get() {
     return player;
 }

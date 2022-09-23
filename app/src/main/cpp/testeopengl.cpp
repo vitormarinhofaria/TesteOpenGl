@@ -17,7 +17,7 @@
 #include <android/asset_manager.h>
 #include <android/asset_manager_jni.h>
 
-#include <GLES3/gl31.h>
+#include <GLES3/gl3.h>
 #include <unistd.h>
 #include "glm/glm/glm.hpp"
 #include "glm/glm/ext.hpp"
@@ -36,7 +36,7 @@
 #include "minimp3.h"
 #include "minimp3_ex.h"
 
-const char *frag = "#version 310 es\n"
+const char *frag = "#version 300 es\n"
                    "precision mediump float;\n"
                    "out vec4 FragColor;\n"
                    "in vec2 TexCoord;\n"
@@ -45,7 +45,7 @@ const char *frag = "#version 310 es\n"
                    "{\n"
                    "    FragColor = texture(textureSamp, TexCoord);\n"
                    "}\n";
-const char *vert = "#version 310 es\n"
+const char *vert = "#version 300 es\n"
                    "precision mediump float;\n"
                    "layout (location = 0) in vec3 aPos;\n"
                    "layout (location = 1) in vec2 aTexCoord;\n"
@@ -174,7 +174,7 @@ Java_com_example_testeopengl_NativeRenderer_onDrawFrameNative(JNIEnv *env, jclas
 
     double now = getNow();
     double deltaTime = now - lastTime;
-    if(deltaTime < 0) deltaTime = 0;
+    if (deltaTime < 0) deltaTime = 0;
     lastTime = getNow();
 
     static bool reversing = false;
@@ -212,14 +212,14 @@ Java_com_example_testeopengl_NativeRenderer_onDrawFrameNative(JNIEnv *env, jclas
         auto samplesUsed = 0;
         for (auto i = 0; i < avgSize; i++) {
             float val = musicBytesL[musicPtr + i * 2];
-            if(val > 1.0f){
+            if (val > 1.0f) {
                 LOG("This should not happen");
             }
             samplesUsed++;
             sum += val;
         }
         auto nval = (float) (sum / samplesUsed);
-        if(nval < 0) nval = 0;
+        if (nval < 0) nval = 0;
 
         musicPtr += samplesPerFrame;
         modScale.x = nval * 0.4f;
@@ -250,7 +250,7 @@ Java_com_example_testeopengl_NativeRenderer_onDrawFrameNative(JNIEnv *env, jclas
     lastTime = getNow();
     static uint64_t frameCount = 0;
     static bool taken = false;
-    static bool shouldSave = false;
+    static bool shouldSave = true;
     if (frameCount == 0 && shouldSave) {
         initEncoding();
         //segment.Init(&writer);
@@ -463,6 +463,8 @@ int State::newEntity() {
     return this->shaders.size() - 1;
 }
 
+extern "C" int get_num(int, int);
+
 jobject jassetManagerRef;
 extern "C"
 JNIEXPORT void JNICALL
@@ -482,6 +484,21 @@ Java_com_example_testeopengl_NativeRenderer_SetFragment(JNIEnv *env, jclass claz
 
     jassetManagerRef = env->NewGlobalRef(assetManager);
     GAssetManager = AAssetManager_fromJava(env, assetManager);
+
+//    void* rlib = dlopen("libandr_lib.so", RTLD_NOW);
+//    if(rlib){
+//        auto* get_num = (int(*)(int, int))dlsym(rlib, "get_num");
+//        if(get_num){
+//            auto result = get_num(10, 8);
+//            LOG("Get Num returned: %d", result);
+//        }else{
+//            LOG("Failed to find 'get_num'");
+//        }
+//    }else{
+//        LOG("Failed to open rust lib");
+//    }
+    auto result = get_num(10, 8);
+    LOG("Get Num returned: %d", result);
 }
 extern "C"
 JNIEXPORT void JNICALL

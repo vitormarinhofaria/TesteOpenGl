@@ -6,6 +6,8 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.media.AudioManager
 import android.media.AudioManager.GET_DEVICES_OUTPUTS
+import android.media.MediaCodec
+import android.media.MediaCodecInfo
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -30,6 +32,7 @@ class MainActivity : AppCompatActivity() {
     companion object{
         init {
             System.loadLibrary("testeopengl")
+            System.loadLibrary("andr_lib")
         }
     }
 
@@ -92,6 +95,17 @@ class MainActivity : AppCompatActivity() {
             Snackbar.make(view, "Replace with your own action", Snackbar.LENGTH_LONG)
                 .setAction("Action", null).show()
         }
+
+        val codec = MediaCodec.createEncoderByType("video/avc")
+        val types = codec.codecInfo.supportedTypes
+        types.forEach {
+            val codecName = it
+            val cap = codec.codecInfo.getCapabilitiesForType(it)
+            cap.colorFormats.forEach {
+                Log.i("CODEC_INFO", "Codec $codecName -> $it")
+            }
+        }
+        Log.i("CODEC_INFO", "")
     }
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {

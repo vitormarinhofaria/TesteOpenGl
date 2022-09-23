@@ -2,13 +2,13 @@ plugins {
     id 'com.android.application'
     id 'org.jetbrains.kotlin.android'
 }
-//apply plugin: 'org.mozilla.rust-android-gradle.rust-android'
-//cargo {
-//    module  = "C:/src/rust/video_rs_android"       // Or whatever directory contains your Cargo.toml
-//    libname = "video_rs_android"          // Or whatever matches Cargo.toml's [package] name.
-//    targets = ["arm64", "x86_64"]  // See bellow for a longer list of options
-//
-//}
+apply plugin: 'org.mozilla.rust-android-gradle.rust-android'
+cargo {
+    module = "C:/dev/src/rust/andr_lib"       // Or whatever directory contains your Cargo.toml
+    libname = "andr_lib"          // Or whatever matches Cargo.toml's [package] name.
+    targets = ["arm64", "x86_64", "arm", "x86"]  // See bellow for a longer list of options
+}
+
 android {
     compileSdk 33
     ndkVersion "25.1.8937393"
@@ -60,6 +60,8 @@ android {
             version '3.22.1'
         }
     }
+    namespace 'com.example.testeopengl'
+    packagingOptions.jniLibs.keepDebugSymbols += '**/*.so'
 }
 
 dependencies {
@@ -78,3 +80,25 @@ dependencies {
 
     implementation 'com.google.oboe:oboe:1.6.1'
 }
+
+task copyRustLibs(type: Copy) {
+    from('build/rustJniLibs/android/'){
+        include "**/*.so"
+    }
+    into 'src/main/cpp/libs/'
+    duplicatesStrategy 'include'
+}
+
+tasks.whenTaskAdded { Task task ->
+    if ((task.name == 'javaPreCompileDebug' || task.name == 'javaPreCompileRelease')) {
+        task.dependsOn 'cargoBuild', 'copyRustLibs'
+    }
+}
+
+tasks.forEach {
+//    if(it.name.contains("cargo")){
+//    }
+}
+//var cargoTask = tasks.findByName('cargoBuild')
+//cargoTask.doLast {
+//}

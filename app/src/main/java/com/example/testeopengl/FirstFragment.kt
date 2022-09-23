@@ -97,7 +97,8 @@ class FirstFragment : Fragment() {
         val bytes = music.readBytes();
         NativeRenderer.SetFragment(this, requireContext().assets);
         NativeRenderer.saveMusic(bytes);
-
+        binding.glPlace.setEGLContextClientVersion(3)
+        binding.glPlace.preserveEGLContextOnPause = true
         renderer = NativeRenderer()
         binding.glPlace.setRenderer(renderer)
         contentResolver = context?.contentResolver

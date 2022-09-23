@@ -59,7 +59,46 @@ void YUVfromRGB(double& Y, double& U, double& V, const double R, const double G,
     V =  0.439 * R - 0.368 * G - 0.071 * B + 128;
 }
 
-void initEncoding() {
+void initEncoding(){
+    AMediaCodec* mcodec = AMediaCodec_createEncoderByType("video/avc");
+    AMediaFormat* format = AMediaCodec_getOutputFormat(mcodec);
+
+    AMediaFormat_setInt32(format, AMEDIAFORMAT_KEY_COLOR_FORMAT, 21);
+    int colorFormat = 0;
+    AMediaFormat_getInt32(format, AMEDIAFORMAT_KEY_COLOR_FORMAT, &colorFormat);
+
+    AMediaFormat_setInt32(format, AMEDIAFORMAT_KEY_FRAME_RATE, 30);
+    int frameRate = 0;
+    AMediaFormat_getInt32(format, AMEDIAFORMAT_KEY_FRAME_RATE, &frameRate);
+
+    AMediaFormat_setInt32(format, AMEDIAFORMAT_KEY_BIT_RATE, 400000);
+    int bitRate = 0;
+    AMediaFormat_getInt32(format, AMEDIAFORMAT_KEY_BIT_RATE, &bitRate);
+
+    AMediaFormat_setInt32(format, AMEDIAFORMAT_KEY_HEIGHT, 720);
+    int h = 0;
+    AMediaFormat_getInt32(format, AMEDIAFORMAT_KEY_HEIGHT, &h);
+
+    AMediaFormat_setInt32(format, AMEDIAFORMAT_KEY_WIDTH, 1280);
+    int w = 0;
+    AMediaFormat_getInt32(format, AMEDIAFORMAT_KEY_WIDTH, &w);
+
+    AMediaFormat_setInt32(format, AMEDIAFORMAT_KEY_I_FRAME_INTERVAL, 10);
+
+    ANativeWindow* window = nullptr;
+    AMediaCrypto* crypto = nullptr;
+
+    AMediaFormat_setString(format, AMEDIAFORMAT_KEY_MIME, "video/avc");
+    media_status_t status = AMediaCodec_configure(mcodec, format, window, crypto, AMEDIACODEC_CONFIGURE_FLAG_ENCODE);
+    if(status == AMEDIA_OK){
+        LOG("Created encoder contex");
+        AMediaCodec_start(mcodec);
+    }else{
+        LOG("Failed to create encoder context");
+    }
+};
+
+void initEncoding2() {
     LOG("libavcodec config:\n\t%s", avcodec_configuration());
     //codec = ctx.avcodec_find_encoder_by_name(codec_name);
     codec = avcodec_find_encoder_by_name(codec_name);

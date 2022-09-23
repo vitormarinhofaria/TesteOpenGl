@@ -9,7 +9,9 @@
 #include <libavutil/opt.h>
 #include <libavutil/imgutils.h>
 #include <dlfcn.h>
-//
+#include <media/NdkMediaCodec.h>
+#include <media/NdkMediaMuxer.h>
+
 typedef AVCodec *(*p_avcodec_find_encoder_by_name)(const char * name);
 typedef AVCodecContext *(*p_avcodec_alloc_context3)(AVCodec * codec);
 typedef AVPacket*(*p_av_packet_alloc)();

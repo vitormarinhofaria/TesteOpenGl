@@ -5,7 +5,7 @@
 
 #include <cstdint>
 
-#include <GLES3/gl31.h>
+#include <GLES3/gl3.h>
 #include "glm/glm/glm.hpp"
 
 #include "Types.h"

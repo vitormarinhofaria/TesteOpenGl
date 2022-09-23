@@ -5,7 +5,7 @@
 #ifndef TESTEOPENGL_SHADER_H
 #define TESTEOPENGL_SHADER_H
 
-#include <GLES3/gl31.h>
+#include <GLES3/gl3.h>
 #include <glm/glm.hpp>
 
 class Shader {

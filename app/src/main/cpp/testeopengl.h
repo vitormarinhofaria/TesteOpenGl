@@ -20,7 +20,7 @@ extern "C"{
 #include "Framebuffer.h"
 
 const char *screenVs =
-        "#version 310 es\n"
+        "#version 300 es\n"
         "precision mediump float;\n"
         "layout (location = 0) in vec3 aPos;\n"
         "layout (location = 1) in vec2 aTexCoords;\n"
@@ -31,7 +31,7 @@ const char *screenVs =
         "   gl_Position = vec4(aPos.x, aPos.y, 0.0, 1.0);\n"
         "}\n";
 const char *screenFs =
-        "#version 310 es\n"
+        "#version 300 es\n"
         "precision mediump float;\n"
         "out vec4 FragColor;\n"
         "in vec2 TexCoords;\n"

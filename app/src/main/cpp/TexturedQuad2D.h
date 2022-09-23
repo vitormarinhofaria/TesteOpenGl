@@ -7,7 +7,7 @@
 
 #include <cstdint>
 
-#include <GLES3/gl31.h>
+#include <GLES3/gl3.h>
 
 #include "Types.h"
 #include "Shader.h"
